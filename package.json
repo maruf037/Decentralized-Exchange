@@ -1,0 +1,22 @@
+{
+  "name": "decentralized-exchange",
+  "version": "1.0.0",
+  "description": "This is a project for creating a decentralized exchange",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/maruf037/Decentralized-Exchange.git"
+  },
+  "author": "Maruf Hossain",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/maruf037/Decentralized-Exchange/issues"
+  },
+  "homepage": "https://github.com/maruf037/Decentralized-Exchange#readme"
+}
