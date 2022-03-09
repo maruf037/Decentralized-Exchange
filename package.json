@@ -18,5 +18,11 @@
   "bugs": {
     "url": "https://github.com/maruf037/Decentralized-Exchange/issues"
   },
-  "homepage": "https://github.com/maruf037/Decentralized-Exchange#readme"
+  "homepage": "https://github.com/maruf037/Decentralized-Exchange#readme",
+  "dependencies": {
+    "css-loader": "^6.7.1",
+    "style": "0.0.3",
+    "style-loader": "^3.3.1",
+    "stylus-loader": "^6.2.0"
+  }
 }
