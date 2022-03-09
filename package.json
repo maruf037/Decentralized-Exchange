@@ -20,9 +20,19 @@
   },
   "homepage": "https://github.com/maruf037/Decentralized-Exchange#readme",
   "dependencies": {
+    "@babel/core": "^7.17.5",
+    "@babel/preset-env": "^7.16.11",
+    "@babel/preset-react": "^7.16.7",
+    "babel-loader": "^8.2.3",
     "css-loader": "^6.7.1",
+    "html-loader": "^3.1.0",
+    "html-webpack-plugin": "^5.5.0",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
     "style": "0.0.3",
     "style-loader": "^3.3.1",
-    "stylus-loader": "^6.2.0"
+    "stylus-loader": "^6.2.0",
+    "webpack": "^5.70.0",
+    "webpack-cli": "^4.9.2"
   }
 }
