@@ -4,7 +4,7 @@ require('babel-polyfill')
 
 module.exports = {
     mode: 'production',
-    entry: ['babel-polyfill', './src/index.jsx'],
+    entry: ['babel-polyfill', './src/index.js'],
     output: {
         filename: 'bundle.js',
         path: path.join(__dirname, 'dist')
@@ -28,6 +28,11 @@ module.exports = {
                     }
                 },
             ]
+            },
+            {
+                test: /\.styl$/,
+                exclude: /node_module/,
+                use: ['style-loader', 'css-loader', 'stylus-loader']
             },
             {
                 test: /\.css$/,
