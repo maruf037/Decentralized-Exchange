@@ -30,7 +30,7 @@ import './Escrow.sol';
 
 contract DAX {
     event TransferOrder(bytes32 _type, address indexed from, address indexed to, bytes32 tokenSymbol, uint256 quantity);
-    enum OrderState {OPEN, CLOSED};
+    enum OrderState {OPEN, CLOSED}
 
     //This struct defines the order.
     struct Order {
@@ -65,4 +65,51 @@ contract DAX {
     mapping(uint256 => uint256) public buyOrderIndexById; // Id => index inside the buyOrders array
     mapping(uint256 => uint256) public sellOrderIndexById; // Id => index inside the sellOrders array
     mapping(address => address) public escrowByUserAddress; // User address => escrow contract address
+
+    // Then, add the onlyOwner modifier, the fallback function which reverts, and the constructor.
+    modifier onlyOwner {
+        require(msg.sender == owner, 'This sender must be the owner for this function');
+        _;
+    }
+
+    // @notice Users should not send ether to this contract.
+    function() externel {
+        revert();
+    }
+
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    /* Define the whitelisting token function with the complete NatSpec documentation and the function signature. 
+    I've highlighted the function so that you can clearly differentiate the function from the comments. */
+
+    /// @notice to whitelist a token so that is tradable in the exchange.
+    /// @dev If the transaction reverts, it could be because of the quantity of token pairs, try reducing the number and breaking the transaction into several pieces.
+    /// @param _symbol The symbol of the token to be whitelisted.
+    /// @param _token The token to whitelist, for instance 'TOK'.
+    /// @param _tokenPairSymbols The token pairs to whitelist for this new token, for instance ['BAT', 'HYDRO'] which will be converted to ['TOK', 'BAT'] and ['TOK', 'HYDRO]
+    /// @param _tokenPairAddresses The pair addresses to whitelist for this new token, for instance: ['0x213...', '0x927...', '0x128...'].
+    function whitelistToken(
+        bytes32 _symbol, 
+        address _token, 
+        bytes32[] memory _tokenPairSymbols, 
+        address[] memory _tokenPairAddresses
+        ) public onlyOwner{} 
+
+    // To manage tokens, create the following two functions with the documentation.
+
+    /// @notice To store tokens inside the escrow contract associated with the user accounts as long as the users made an approval beforehand.
+    /// @dev It will revert is the if the user doesn't approve tokens beforehand to this contract.
+    /// @param _token The token address
+    /// @param _amount The quantity to deposit to the escrow contract.
+    function deposittokens(address _token, uint256 _amount) public {}
+
+    /// @notice To extract tokens.
+    /// @param _token The token address to extract.
+    /// @param _amount The amount of tokens to transfer.
+    function extractTokens(address _token, uint256 _amount) public {}
+
+    
 }   
+
