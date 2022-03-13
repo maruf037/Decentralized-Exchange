@@ -176,7 +176,85 @@ contract DAX {
     /// @param _firstSymbol The first token to buy or sell.
     /// @param _secondSymbol The second token to create a pair.
     /// @param _quantity The amount of tokens to sell or buy.
-    function marketOrder(bytes32 _type, bytes32 _firstSymbol, bytes32 _secondSymbol, uint256 _quantity) public {}
+    function marketOrder(bytes32 _type, bytes32 _firstSymbol, bytes32 _secondSymbol, uint256 _quantity) public {
+        // the require() function checks to verify that the given tokens are valid and that the quantities are correct.
+        require(_type.length > 0, 'The type of order must be specified');
+        require(isTokenSymbolWhitelisted[_firstSymbol], 'The first symbol must be whitelisted');
+        require(istokenSymbolWhitelisted[_secondSymbol], 'The second symbol must be whitelisted');
+        require(_quantity > 0, 'The quantity must be greater than 0. You must specify the quantity to buy or sell.');
+        require(checkValidPair(_firstSymbol, _secondSymbol), 'The token pair must be valid');
+        // Fills the latest market orders up until the _quantity is reached.
+        uint256[] memory ordersToFiddIds;
+        uint256[] memory quantitiesToFillPerOrder;
+        uint256 currentQuantity = 0;
+        if(_type == 'buy') {
+            ordersToFillIds = new uint256[](sellOrders.length);
+            quantitiesToFillPerOrder = new uint256[](sellOrders.length);
+            // Loop through all the sell orders until we fill the quantity.
+            for(uint256 i = 0; i < sellOrders.length; i++) {
+                ordersToFillIds[i] = sellOrders[i].id;
+                if((currentQuantity + sellOrders[i].quantity) > _quantity) {
+                    quantitiesToFillPerOrder[i] = _quantity - currentQuantity;
+                    break;
+                }
+                currentQuantity += sellOrders[i].quantity;
+                quantitiesToFillPerOrder[i] = sellOrders[i].quantity;
+            }
+        } else {
+            ordersToFillIds = new uint256[](buyOrders.length);
+            quantitiesToFillPerOrder = new uint256[](buyOrders.length);
+            // Loop through all the buy orders until we fill the quantity.
+            for(uint256 i = 0; i < buyOrders.length; i++) {
+                ordersToFillIds[i] = buyOrders[i].id;
+                if((currentQuantity + buyOrders[i].quantity) > _quantity) {
+                    quantitiesToFillPerOrder[i] = _quantity - currentQuantity;
+                    break;
+                }
+                currentQuantity += buyOrders[i].quantity;
+                quantitiesToFillPerOrder[i] = buyOrders[i].quantity;
+            }
+        // When the myOrder.type == sell or _type == buy
+        // myOrder.owner send quantityToFill[] of _firstSymbol to msg.sender.
+        // msg.sender send quantityToFill[] * myOwner.price of _secondSymbol to myOrder.owner.
+        // When the myOrder.type == buy or _type == sell
+        // myOrder.owner send quantityToFill[] * myOwner.price of _secondSymbol to msg.sender.
+        // msg.sender send quantityToFill[] of _firstSymbol to myOrder.owner.
+        }
+        // Colse and fill orders
+        for(uint256 i = 0; i < ordersToFillIds.length; i++) {
+            Order memory myOrder = OrderById(ordersToFillIds[i]);
+            // If we fill the entire order, mark it as closed
+            if(quantitiesToFillPerOrder[i] == myOrder.quantity) {
+                myOrder.state = OrderState.CLOSED;
+                closedOrders.push(myOrder);
+            }
+            myOrder.quantity -= quantitiesToFillPerOrder[i];
+            orderById[myOrder.id] = myOrder;
+
+            /* We have to break it down by type to see whether the order is actually a buy or sell order, to guarantee that we are fulfilling 
+            the right order with the right quantities. */
+            if(_type == 'buy') {
+                // If the limit order is a buy order, send the firstSymbol to the creator of the limit order which is the buyer.
+                Escrow(escrowByUserAddress[myOrder.owner]).transferTokens(tokenAddressBySymbol[_firstSymbol], msg.sender, quantitiesToFillPerOrder[i]);
+                Escrow(escrowByUserAddress[myOrder.owner]).transferTokens(tokenAddressBySymbol[_secondSymbol], myOrder.owner, quantitiesToFillPerOrder[i] * myOrder.price);
+
+                sellOrders[sellOrderIndexById[myOrder.id]] = myOrder;
+
+                emit TransferOrder('sell', escrowByUserAddress[myOrder.owner], msg.sender, _firstSymbol, quantitiesToFillPerOrder[i])
+                emit TrandferOrder('buy', msg.sender, escrowByUserAddress[myOrder.owner], _secondSymbol, quantitiesToFillPerOrder[i] * myOrder.price);
+            } else {
+                // If it's a sell order, we change the array used, but the logic is the same.
+                // If this is a buy market order or a sell limit order for the opposite, send firstSymbol to the second user.
+                Escrow(escrowByUserAddress[myOrder.owner]).transferTokens(tokenAddressBySymbol[_secondSymbol], msg.sender, quantitiesToFillPerOrder[i] * myOrder.price);
+                Escrow(escrowByUserAddress[myOrder.owner]).transferTokens(tokenAddressBySymbol[_firstSymbol], myOrder.owner, quantitiesToFillPerOrder[i]);
+
+                buyOrders[buOrderIndexById[myOrder.id]] = myOrder;
+
+                emit TransferOrder('buy', escrowByUserAddress[myOrder.owner], msg.sender, _secondSymbol, quantitiesToFillPerOrder[i] * myOrder.price);
+                emit TransferOrder('sell', escrowByUserAddress[msg.sender], myOrder.owner, _firstSymbol, quantitiesToFillPerOrder[i]);    
+            }
+        }
+    }
 
     /// @notice To create a market order given a token pair, type of order, amount of tokens to trade and the price per token. If
     /// the type is buy, the price will determine how many _secondSymbol tokens you are willing to pay for each _firstSymbol up until
