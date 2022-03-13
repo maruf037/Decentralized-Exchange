@@ -29,10 +29,10 @@ import './Escrow.sol';
 */
 
 contract DAX {
-    event TransferOrder(bytes32 _type, address indexed from, address indexed to, bytes32 tokenSymbol, uint256 quantity);
-    enum OrderState {OPEN, CLOSED}
+    event TransferOrder(bytes32 _type, address indexed from, address indexed to, bytes32 tokenSymbol, uint256 quantity); // Shows the logs to people when a token is sold or purchased.
+    enum OrderState {OPEN, CLOSED} // This defines whether an order is open or closed.
 
-    //This struct defines the order.
+    //This struct defines the order. This struct has each property of each order to clearly define which token is being dealt.
     struct Order {
         uint256 id;
         address ownner;
@@ -46,16 +46,17 @@ contract DAX {
     }
 
     //Then define the many variables needed to manage sell and buy orders, while also whitelisting tokens.
-    Order[] public buyOrders;
-    Order[] public sellOrders;
-    Order[] public closedOrders;
-    uint256 public orderIdCounter;
-    address public owner;
-    address public whitelistedToken;
-    bytes32[] public whitelistedTokenSymbols;
-    address[] public users;
+    Order[] public buyOrders; // This is the array of buy orders.
+    Order[] public sellOrders; // This is the array of sell orders.
+    Order[] public closedOrders; // This is the array of closed orders.
+    uint256 public orderIdCounter; // This is the counter for the order id.
+    address public owner; // This is the owner of the contract.
+    address public whitelistedTokens; // This is the token that is whitelisted.
+    bytes32[] public whitelistedTokenSymbols; // This is the array of whitelisted tokens.
+    address[] public users; // This is the array of users.
 
     //Create the mappings required for add and manage the token symbols and to find the orders by the given IDs.
+    //This mapping is also helpful to find each specific order easily while optimizing gas costs.
     //Token address => whitelisted or not
     mapping(address => bool) public isTokenWhitelisted;
     mapping(address => bool) public isTokenSymbolWhitelisted;
@@ -72,11 +73,13 @@ contract DAX {
         _;
     }
 
-    // @notice Users should not send ether to this contract.
+    /// @notice Users should not send ether to this contract. 
+    /// This fallback function that doesn't allow ETH transfers so that people don't send funds to this exchange.
     function() externel {
         revert();
     }
 
+    /// @notice Constructor to setup the owner.
     constructor() public {
         owner = msg.sender;
     }
@@ -90,12 +93,38 @@ contract DAX {
     /// @param _token The token to whitelist, for instance 'TOK'.
     /// @param _tokenPairSymbols The token pairs to whitelist for this new token, for instance ['BAT', 'HYDRO'] which will be converted to ['TOK', 'BAT'] and ['TOK', 'HYDRO]
     /// @param _tokenPairAddresses The pair addresses to whitelist for this new token, for instance: ['0x213...', '0x927...', '0x128...'].
+    // This function takes a token address, and an array of symbols to create pairs with that main token; that way, you're able to trade with a large quantity of pairs at once. 
     function whitelistToken(
         bytes32 _symbol, 
         address _token, 
         bytes32[] memory _tokenPairSymbols, 
         address[] memory _tokenPairAddresses
-        ) public onlyOwner{} 
+        ) public onlyOwner { 
+            require(_token != address(0), 'Token address cannot be 0. You must specify the token address to whitelist');
+            require(IERC20(_token).totalSupply() > 0, 'Token must have a total supply greater than 0. The token address specified is not a valid ERC20 token.');
+            require(_tokenPairAddresses.length == _tokenPairSymbols.length, 'The number of token pair symbols must match the number of token pair addresses');
+
+            // Add the token to the mapping of tokens.
+            isTokenWhitelisted[_token] = true;
+            isTokenSymbolWhitelisted[_symbol] = true;
+            whitelistedTokens.push(_token);
+            whitelistedTokenSymbols.push(_symbol);
+            tokenAddressBySymbol[_symbol] = _token;
+            tokenPairs[_symbol] = _tokenPairSymbols;
+
+            for(uint256 i = 0; i < _tokenPairAddresses.length; i++) {
+                address currentAddress = _tokenPairAddresses[i];
+                bytes32 currentSymbol = _tokenPairSymbols[i];
+                tokenPairs[currentSymbol].push(_symbol);
+                if(!isTokenWhitelisted[currentAddress]) {
+                    isTokenWhitelisted[currentAddress] = true;
+                    isTokenSymbolWhitelisted[currentSymbol] = true;
+                    whitelistedTokens.push(currentAddress);
+                    whitelistedTokenSymbols.push(currentSymbol);
+                    tokenAddressBySymbol[currentSymbol] = currentAddress;
+                }
+            }
+        } 
 
     // To manage tokens, create the following two functions with the documentation.
 
@@ -103,12 +132,39 @@ contract DAX {
     /// @dev It will revert is the if the user doesn't approve tokens beforehand to this contract.
     /// @param _token The token address
     /// @param _amount The quantity to deposit to the escrow contract.
-    function depositTokens(address _token, uint256 _amount) public {}
+    /* The depositTokens() function is used by users that want to increase their token balance. They can directly transfer the tokens they want 
+     to trade to their associated Escrow contract, but users first have to create a new Escrow, which can only be done through this function. 
+     Then the Escrow address will be associated with that account in the escrowByUserAddress mapping. This deposit function also requires that 
+     the user previously uses the approve() function to allow the DAX contract to transfer tokens to the Escrow contract; otherwise, it will fail. */
+    function depositTokens(address _token, uint256 _amount) public {
+        require(isTokenWhitelisted[_token], 'The token to deposit must be whitelisted');
+        require(_token != address(0), 'Token address cannot be 0. You must specify the token address to deposit');
+        require(_amount > 0, 'Amount to deposit must be greater than 0. You must send some tokens with this deposit function.');
+        require(IERC20(_token).allowance(msg.sender, address(this)) >= _amount, 'You must approve() the quantity of tokens to deposit first.');
+
+        /* The deposit function checks whether the user has an Escrow contract associated with their address. If not, the function creates 
+        a new Escrow, then transfers the deposit of tokens that the user requested as long as they previously approved some in the appropriate 
+        ERC20 contract. */
+        if(escrowByUserAddress[msg.sender] == address(0)) {
+            Escrow newEscrow = new Escrow(address(this));
+            escrowByUserAddress[msg.sender] = address(newEscrow);
+            users.push(msg.sender);
+        }
+        IERC20(_token).transferFrom(msg.sender, escrowByUserAddress[msg.sender], _amount);
+    }
 
     /// @notice To extract tokens.
     /// @param _token The token address to extract.
     /// @param _amount The amount of tokens to transfer.
-    function extractTokens(address _token, uint256 _amount) public {}
+    /* the extractTokens() function is used to move tokens from the Escrow to the user's address. It's a shortcut to the transferTokens() function 
+    inside the Escrow contract to facilitate token management. */
+    function extractTokens(address _token, uint256 _amount) public {
+        /* The extract function is simply running the transferTokens() function to the owner's address, as long as they have some previous balance 
+        inside. Otherwise it will revert. */
+        require(_token != address(0), 'Token address cannot be 0. You must specify the token address to extract');
+        require(_amount > 0, 'Amount to extract must be greater than 0. You must send some tokens with this extract function.');
+        Escrow(escrowByUserAddress[msg.sender]).transferTokens(_token, msg.sender, _amount);
+    }
 
     /* Add the market and limit the order functions with the parameters required for them to
     work properly, since these will be the main functions used to create orders and to interact
