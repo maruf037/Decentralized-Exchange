@@ -30,7 +30,7 @@ import './Escrow.sol';
 
 contract DAX {
     event TransferOrder(bytes32 _type, address indexed from, address indexed to, bytes32 tokenSymbol, uint256 quantity);
-    enum OrderState {OPEN, CLOSED};
+    enum OrderState {OPEN, CLOSED}
 
     //This struct defines the order.
     struct Order {
