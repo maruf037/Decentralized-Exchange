@@ -241,7 +241,39 @@ contract DAX {
     /// @notice sorts the selected array of orders by price from lower to higher if it's a buy order or from highest to lowest if it's a sell order.
     /// @param _type The type of order either 'buy' or 'sell'.
     /// @return uint256[] Returns the sorted ids.
-    function sortIdsByPrices(bytes32 _type) public view returns (uint256[] memory) {}
+    function sortIdsByPrices(bytes32 _type) public view returns (uint256[] memory) {
+        Order[] memory orders;
+        if(_type == 'sell') {
+            orders = sellOrders;
+        } else {
+            orders = buyOrders;
+        }
+
+        uint256 length = orders.length;
+        uint256[] memory sortedIds = new uint256[](length);
+        uint256 lastId = 0;
+        for(uint i = 0; i < length; i++) {
+            if(orders[i].quantity > 0) {
+                for(uint j = i + 1; j < length; j++) {
+                    // If it's a buy order, sort from lowest to highest price since we want the lowest prices first.
+                    if(_type == 'buy' && orders[i].price > orders[j].price) {
+                        Order memory temporaryOrder = orders[i];
+                        orders[i] = orders[j];
+                        orders[j] = temporaryOrder;
+                    }
+                    // If it's a sell order, sort from highest to lowest price since we want the highest sell prices first.
+                    if(_type == 'sell' && orders[i].price < orders[j].price) {
+                        Order memory temporaryOrder = orders[i];
+                        orders[i] = orders[j];
+                        orders[j] = temporaryOrder;
+                    }
+                    orderedIds[lastId] = orders[i].id;
+                    lastId++;
+                }
+            }
+            return orderedIds;
+        }
+    }
 
     /// @notice Checks if a pair is valid.
     /// @param _firstSymbol The first symbol of the pair.
